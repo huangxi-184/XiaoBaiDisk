@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <title>小白的简易网盘</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        background: linear-gradient(135deg, #f5f7fa, #e4e7eb);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .container {
+        width: 100%;
+        max-width: 720px;
+        background: #fff;
+        border-radius: 12px;
+        padding: 32px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+      }
+
+      h2 {
+        margin: 0 0 24px;
+        text-align: center;
+        font-size: 22px;
+      }
+
+      .upload-box {
+        border: 2px dashed #cbd5e1;
+        border-radius: 10px;
+        padding: 28px;
+        text-align: center;
+        transition: all 0.2s;
+        cursor: pointer;
+      }
+
+      .upload-box:hover {
+        border-color: #3b82f6;
+        background: #f8fafc;
+      }
+
+      .upload-box input {
+        display: none;
+      }
+
+      .upload-text {
+        font-size: 14px;
+        color: #64748b;
+      }
+
+      .upload-text strong {
+        color: #3b82f6;
+      }
+
+      h3 {
+        margin: 32px 0 16px;
+        font-size: 16px;
+      }
+
+      ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+      }
+
+      li {
+        margin-bottom: 10px;
+      }
+
+      .file-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 16px;
+        background: #f8fafc;
+        border-radius: 8px;
+        transition: background 0.15s;
+      }
+
+      .file-item:hover {
+        background: #eef2ff;
+      }
+
+      .file-name {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 80%;
+        font-size: 14px;
+      }
+
+      .download {
+        font-size: 13px;
+        color: #3b82f6;
+        text-decoration: none;
+      }
+
+      .download:hover {
+        text-decoration: underline;
+      }
+
+      .empty {
+        text-align: center;
+        color: #94a3b8;
+        font-size: 14px;
+        padding: 20px 0;
+      }
+
+      @media (max-width: 480px) {
+        .container {
+          padding: 20px;
+          border-radius: 0;
+          height: 100vh;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2>📁 小白的简易网盘</h2>
+
+      <form class="upload-box" id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" id="fileInput" />
+        <div class="upload-text">
+          拖拽文件到此处<br />
+          或 <strong>点击选择文件上传</strong>
+        </div>
+      </form>
+
+      <h3>已上传文件</h3>
+      <ul id="fileList"></ul>
+    </div>
+
+    <script>
+      const fileInput = document.getElementById("fileInput")
+      const uploadForm = document.getElementById("uploadForm")
+      const fileList = document.getElementById("fileList")
+
+      uploadForm.addEventListener("click", () => fileInput.click())
+
+      fileInput.addEventListener("change", () => {
+        if (fileInput.files.length) {
+          uploadForm.submit()
+        }
+      })
+
+      fetch("/files")
+        .then((res) => res.json())
+        .then((files) => {
+          if (!files.length) {
+            fileList.innerHTML = '<div class="empty">暂无文件</div>'
+            return
+          }
+
+          files.forEach((f) => {
+            const li = document.createElement("li")
+            li.innerHTML = `
+              <div class="file-item">
+                <div class="file-name">${f.name}</div>
+                <a class="download" href="${f.url}" download>下载</a>
+              </div>
+            `
+            fileList.appendChild(li)
+          })
+        })
+    </script>
+  </body>
+</html>
