@@ -1,177 +1,433 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-  <head>
-    <meta charset="UTF-8" />
-    <title>小白的简易网盘</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <style>
-      * {
-        box-sizing: border-box;
-      }
+<head>
+  <meta charset="UTF-8" />
+  <title>小白网盘</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    * { box-sizing: border-box; }
 
-      body {
-        margin: 0;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-        background: linear-gradient(135deg, #f5f7fa, #e4e7eb);
-        min-height: 100vh;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-      }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: linear-gradient(135deg, #f5f7fa, #e4e7eb);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 40px 16px;
+    }
 
+    .container {
+      width: 100%;
+      max-width: 720px;
+      background: #fff;
+      border-radius: 12px;
+      padding: 32px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.08);
+    }
+
+    h2 {
+      margin: 0 0 24px;
+      text-align: center;
+      font-size: 22px;
+      color: #1e293b;
+    }
+
+    /* Upload box */
+    .upload-box {
+      border: 2px dashed #cbd5e1;
+      border-radius: 10px;
+      padding: 28px;
+      text-align: center;
+      transition: all 0.2s;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .upload-box:hover,
+    .upload-box.dragover {
+      border-color: #3b82f6;
+      background: #f8fafc;
+    }
+
+    .upload-box.dragover {
+      background: #eff6ff;
+      border-color: #2563eb;
+    }
+
+    .upload-box input { display: none; }
+
+    .upload-text {
+      font-size: 14px;
+      color: #64748b;
+    }
+
+    .upload-text strong { color: #3b82f6; }
+
+    /* Upload progress */
+    .progress-wrap {
+      display: none;
+      margin-top: 16px;
+    }
+
+    .progress-wrap.active { display: block; }
+
+    .progress-bar {
+      width: 100%;
+      height: 6px;
+      background: #e2e8f0;
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #3b82f6, #2563eb);
+      border-radius: 3px;
+      transition: width 0.2s ease;
+    }
+
+    .progress-text {
+      font-size: 13px;
+      color: #64748b;
+      margin-top: 6px;
+      text-align: center;
+    }
+
+    /* File list */
+    .file-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 32px 0 16px;
+    }
+
+    .file-header h3 {
+      margin: 0;
+      font-size: 16px;
+      color: #1e293b;
+    }
+
+    .file-count {
+      font-size: 13px;
+      color: #94a3b8;
+    }
+
+    ul {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+
+    li { margin-bottom: 8px; }
+
+    .file-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      background: #f8fafc;
+      border-radius: 8px;
+      transition: background 0.15s;
+      gap: 12px;
+    }
+
+    .file-item:hover { background: #eef2ff; }
+
+    .file-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .file-name {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      font-size: 14px;
+      color: #1e293b;
+    }
+
+    .file-meta {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 2px;
+    }
+
+    .btn-download {
+      font-size: 13px;
+      color: #3b82f6;
+      text-decoration: none;
+      padding: 6px 12px;
+      border-radius: 6px;
+      transition: background 0.15s;
+    }
+
+    .btn-download:hover {
+      background: #dbeafe;
+      text-decoration: none;
+    }
+
+    .empty {
+      text-align: center;
+      color: #94a3b8;
+      font-size: 14px;
+      padding: 20px 0;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      background: #1e293b;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      opacity: 0;
+      transition: all 0.3s ease;
+      pointer-events: none;
+      z-index: 100;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .toast.error { background: #dc2626; }
+
+    @media (max-width: 480px) {
+      body { padding: 0; }
       .container {
-        width: 100%;
-        max-width: 720px;
-        background: #fff;
-        border-radius: 12px;
-        padding: 32px;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08);
+        padding: 20px;
+        border-radius: 0;
+        min-height: 100vh;
       }
+      .file-item { padding: 10px 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>小白网盘</h2>
 
-      h2 {
-        margin: 0 0 24px;
-        text-align: center;
-        font-size: 22px;
-      }
-
-      .upload-box {
-        border: 2px dashed #cbd5e1;
-        border-radius: 10px;
-        padding: 28px;
-        text-align: center;
-        transition: all 0.2s;
-        cursor: pointer;
-      }
-
-      .upload-box:hover {
-        border-color: #3b82f6;
-        background: #f8fafc;
-      }
-
-      .upload-box input {
-        display: none;
-      }
-
-      .upload-text {
-        font-size: 14px;
-        color: #64748b;
-      }
-
-      .upload-text strong {
-        color: #3b82f6;
-      }
-
-      h3 {
-        margin: 32px 0 16px;
-        font-size: 16px;
-      }
-
-      ul {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-      }
-
-      li {
-        margin-bottom: 10px;
-      }
-
-      .file-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px 16px;
-        background: #f8fafc;
-        border-radius: 8px;
-        transition: background 0.15s;
-      }
-
-      .file-item:hover {
-        background: #eef2ff;
-      }
-
-      .file-name {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        white-space: nowrap;
-        max-width: 80%;
-        font-size: 14px;
-      }
-
-      .download {
-        font-size: 13px;
-        color: #3b82f6;
-        text-decoration: none;
-      }
-
-      .download:hover {
-        text-decoration: underline;
-      }
-
-      .empty {
-        text-align: center;
-        color: #94a3b8;
-        font-size: 14px;
-        padding: 20px 0;
-      }
-
-      @media (max-width: 480px) {
-        .container {
-          padding: 20px;
-          border-radius: 0;
-          height: 100vh;
-        }
-      }
-    </style>
-  </head>
-  <body>
-    <div class="container">
-      <h2>📁 小白的简易网盘</h2>
-
-      <form class="upload-box" id="uploadForm" action="/upload" method="post" enctype="multipart/form-data">
-        <input type="file" name="file" id="fileInput" />
-        <div class="upload-text">
-          拖拽文件到此处<br />
-          或 <strong>点击选择文件上传</strong>
+    <div class="upload-box" id="uploadBox">
+      <input type="file" name="file" id="fileInput" />
+      <div class="upload-text">
+        拖拽文件到此处<br />
+        或 <strong>点击选择文件上传</strong>
+      </div>
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
         </div>
-      </form>
-
-      <h3>已上传文件</h3>
-      <ul id="fileList"></ul>
+        <div class="progress-text" id="progressText"></div>
+      </div>
     </div>
 
-    <script>
-      const fileInput = document.getElementById("fileInput")
-      const uploadForm = document.getElementById("uploadForm")
-      const fileList = document.getElementById("fileList")
+    <div class="file-header">
+      <h3>已上传文件</h3>
+      <span class="file-count" id="fileCount"></span>
+    </div>
+    <ul id="fileList"></ul>
+  </div>
 
-      uploadForm.addEventListener("click", () => fileInput.click())
+  <div class="toast" id="toast"></div>
 
-      fileInput.addEventListener("change", () => {
-        if (fileInput.files.length) {
-          uploadForm.submit()
+  <script>
+    const uploadBox = document.getElementById("uploadBox")
+    const fileInput = document.getElementById("fileInput")
+    const fileList = document.getElementById("fileList")
+    const fileCount = document.getElementById("fileCount")
+    const progressWrap = document.getElementById("progressWrap")
+    const progressFill = document.getElementById("progressFill")
+    const progressText = document.getElementById("progressText")
+    const toast = document.getElementById("toast")
+
+    let toastTimer = null
+
+    function formatSize(bytes) {
+      if (bytes === 0) return "0 B"
+      const units = ["B", "KB", "MB", "GB"]
+      const i = Math.floor(Math.log(bytes) / Math.log(1024))
+      const s = (bytes / Math.pow(1024, i)).toFixed(i > 0 ? 1 : 0)
+      return s + " " + units[i]
+    }
+
+    function formatTime(ms) {
+      const d = new Date(ms)
+      const pad = (n) => String(n).padStart(2, "0")
+      return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+    }
+
+    function showToast(msg, isError = false) {
+      toast.textContent = msg
+      toast.className = "toast" + (isError ? " error" : "")
+      clearTimeout(toastTimer)
+      // Trigger reflow
+      void toast.offsetWidth
+      toast.classList.add("show")
+      toastTimer = setTimeout(() => toast.classList.remove("show"), 2500)
+    }
+
+    async function loadFiles() {
+      try {
+        const res = await fetch("/files")
+        const files = await res.json()
+        renderFiles(files)
+      } catch {
+        fileList.innerHTML = '<div class="empty">加载失败，请刷新页面</div>'
+      }
+    }
+
+    function renderFiles(files) {
+      fileList.innerHTML = ""
+      fileCount.textContent = files.length ? `共 ${files.length} 个文件` : ""
+
+      if (!files.length) {
+        fileList.innerHTML = '<div class="empty">暂无文件</div>'
+        return
+      }
+
+      files.forEach((f) => {
+        const li = document.createElement("li")
+        li.dataset.name = f.name
+        li.innerHTML = `
+          <div class="file-item">
+            <div class="file-info">
+              <div class="file-name" title="${escapeHtml(f.name)}">${escapeHtml(f.name)}</div>
+              <div class="file-meta">${formatSize(f.size)} · ${formatTime(f.mtime)}</div>
+            </div>
+            <a class="btn-download" href="${f.url}" download>下载</a>
+          </div>
+        `
+
+        fileList.appendChild(li)
+      })
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement("div")
+      div.textContent = str
+      return div.innerHTML
+    }
+
+    // Upload via fetch with progress
+    async function uploadFile(file) {
+      if (!file) return
+
+      const formData = new FormData()
+      formData.append("file", file)
+
+      progressWrap.classList.add("active")
+      progressFill.style.width = "0%"
+      progressText.textContent = "上传中 0%"
+
+      const xhr = new XMLHttpRequest()
+
+      xhr.upload.addEventListener("progress", (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round((e.loaded / e.total) * 100)
+          progressFill.style.width = pct + "%"
+          progressText.textContent = `上传中 ${pct}%`
         }
       })
 
-      fetch("/files")
-        .then((res) => res.json())
-        .then((files) => {
-          if (!files.length) {
-            fileList.innerHTML = '<div class="empty">暂无文件</div>'
-            return
+      return new Promise((resolve, reject) => {
+        xhr.addEventListener("load", () => {
+          progressWrap.classList.remove("active")
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve()
+          } else {
+            try {
+              const err = JSON.parse(xhr.responseText)
+              reject(new Error(err.error || "上传失败"))
+            } catch {
+              reject(new Error("上传失败"))
+            }
           }
-
-          files.forEach((f) => {
-            const li = document.createElement("li")
-            li.innerHTML = `
-              <div class="file-item">
-                <div class="file-name">${f.name}</div>
-                <a class="download" href="${f.url}" download>下载</a>
-              </div>
-            `
-            fileList.appendChild(li)
-          })
         })
-    </script>
-  </body>
+
+        xhr.addEventListener("error", () => {
+          progressWrap.classList.remove("active")
+          reject(new Error("网络错误"))
+        })
+
+        xhr.addEventListener("abort", () => {
+          progressWrap.classList.remove("active")
+          reject(new Error("上传取消"))
+        })
+
+        xhr.open("POST", "/upload")
+        xhr.send(formData)
+      })
+    }
+
+    // Click to upload
+    uploadBox.addEventListener("click", () => {
+      fileInput.click()
+    })
+
+    fileInput.addEventListener("change", async () => {
+      const file = fileInput.files[0]
+      fileInput.value = ""
+      if (!file) return
+
+      try {
+        await uploadFile(file)
+        showToast("上传成功")
+        loadFiles()
+      } catch (err) {
+        showToast(err.message || "上传失败", true)
+      }
+    })
+
+    // Drag & drop
+    uploadBox.addEventListener("dragenter", (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      uploadBox.classList.add("dragover")
+    })
+
+    uploadBox.addEventListener("dragover", (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      uploadBox.classList.add("dragover")
+    })
+
+    uploadBox.addEventListener("dragleave", (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      uploadBox.classList.remove("dragover")
+    })
+
+    uploadBox.addEventListener("drop", async (e) => {
+      e.preventDefault()
+      e.stopPropagation()
+      uploadBox.classList.remove("dragover")
+
+      const files = e.dataTransfer.files
+      if (!files.length) return
+
+      try {
+        await uploadFile(files[0])
+        showToast("上传成功")
+        loadFiles()
+      } catch (err) {
+        showToast(err.message || "上传失败", true)
+      }
+    })
+
+    // Prevent drag on whole page
+    document.addEventListener("dragover", (e) => e.preventDefault())
+    document.addEventListener("drop", (e) => e.preventDefault())
+
+    // Initial load
+    loadFiles()
+  </script>
+</body>
 </html>

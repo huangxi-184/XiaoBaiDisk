@@ -2,16 +2,18 @@ const Koa = require("koa")
 const Router = require("@koa/router")
 const serve = require("koa-static")
 const { koaBody } = require("koa-body")
-const fs = require("fs")
+const fs = require("fs").promises
+const { createReadStream, mkdirSync, readdirSync, renameSync, statSync } = require("fs")
 const path = require("path")
 const os = require("os")
+const notifier = require("node-notifier")
 
 const app = new Koa()
 const router = new Router()
 
-const UPLOAD_DIR = path.join(__dirname, "public", "files")
+const UPLOAD_DIR = "C:\\Users\\18421\\Documents\\xiaobaiDisk"
 
-fs.mkdirSync(UPLOAD_DIR, { recursive: true })
+mkdirSync(UPLOAD_DIR, { recursive: true })
 
 function getLocalIPs() {
   const interfaces = os.networkInterfaces()
@@ -38,8 +40,20 @@ function getLocalIPs() {
   return [...new Set(result)]
 }
 
+// Static files
 app.use(serve(path.join(__dirname, "public")))
 
+// Error handling middleware
+app.use(async (ctx, next) => {
+  try {
+    await next()
+  } catch (err) {
+    ctx.status = err.status || 500
+    ctx.body = { error: err.message || "Internal Server Error" }
+  }
+})
+
+// Upload file
 router.post(
   "/upload",
   koaBody({
@@ -50,29 +64,80 @@ router.post(
     },
   }),
   async (ctx) => {
-    const file = ctx.request.files.file
+    const file = ctx.request.files?.file
+    if (!file) {
+      ctx.status = 400
+      ctx.body = { error: "请选择文件" }
+      return
+    }
 
     const parsed = path.parse(file.originalFilename)
     const timestamp = Date.now()
     const newFilename = `${parsed.name}_${timestamp}${parsed.ext}`
     const targetPath = path.join(UPLOAD_DIR, newFilename)
 
-    fs.renameSync(file.filepath, targetPath)
+    renameSync(file.filepath, targetPath)
 
-    ctx.redirect("/")
+    ctx.body = { success: true, name: newFilename }
+
+    // Windows desktop notification
+    notifier.notify({
+      title: "小白网盘",
+      message: `新文件已上传: ${newFilename}`,
+      sound: true,
+      wait: false,
+    })
   }
 )
 
-router.get("/files", async (ctx) => {
-  const files = fs
-    .readdirSync(UPLOAD_DIR)
-    .filter((f) => !f.startsWith("."))
-    .map((name) => ({
-      name,
-      url: `/files/${encodeURIComponent(name)}`,
-    }))
+// Serve uploaded files
+router.get("/files/:name", async (ctx) => {
+  const name = decodeURIComponent(ctx.params.name)
+  const filePath = path.join(UPLOAD_DIR, name)
 
+  if (!filePath.startsWith(UPLOAD_DIR)) {
+    ctx.status = 403
+    return
+  }
+
+  try {
+    statSync(filePath)
+  } catch {
+    ctx.status = 404
+    ctx.body = { error: "文件不存在" }
+    return
+  }
+
+  ctx.type = path.extname(name)
+  ctx.attachment(name)
+  ctx.body = createReadStream(filePath)
+})
+
+// List files
+router.get("/files", async (ctx) => {
+  const names = readdirSync(UPLOAD_DIR).filter((f) => !f.startsWith("."))
+
+  const files = await Promise.all(
+    names.map(async (name) => {
+      const filePath = path.join(UPLOAD_DIR, name)
+      try {
+        const stat = await fs.stat(filePath)
+        return {
+          name,
+          url: `/files/${encodeURIComponent(name)}`,
+          size: stat.size,
+          mtime: stat.mtimeMs,
+        }
+      } catch {
+        return null
+      }
+    })
+  )
+
+  // Sort by mtime descending (newest first)
   ctx.body = files
+    .filter(Boolean)
+    .sort((a, b) => b.mtime - a.mtime)
 })
 
 app.use(router.routes()).use(router.allowedMethods())
@@ -87,9 +152,9 @@ app.listen(PORT, HOST, () => {
 
   if (localIPs.length) {
     localIPs.forEach((ip) => {
-      console.log(`🌐 http://${ip}:${PORT}`)
+      console.log(`  http://${ip}:${PORT}`)
     })
   } else {
-    console.log(`💻 http://localhost:${PORT}`)
+    console.log(`  http://localhost:${PORT}`)
   }
 })
