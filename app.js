@@ -61,6 +61,7 @@ router.post(
     formidable: {
       uploadDir: UPLOAD_DIR,
       keepExtensions: true,
+      maxFileSize: 10 * 1024 * 1024 * 1024, // 10GB
     },
   }),
   async (ctx) => {
