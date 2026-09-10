@@ -3,7 +3,7 @@ const Router = require("@koa/router")
 const serve = require("koa-static")
 const { koaBody } = require("koa-body")
 const fs = require("fs").promises
-const { createReadStream, mkdirSync, readdirSync, renameSync, statSync } = require("fs")
+const { createReadStream, mkdirSync, readdirSync, renameSync, readFileSync } = require("fs")
 const path = require("path")
 const os = require("os")
 const notifier = require("node-notifier")
@@ -11,9 +11,65 @@ const notifier = require("node-notifier")
 const app = new Koa()
 const router = new Router()
 
-const UPLOAD_DIR = "C:\\Users\\18421\\Documents\\xiaobaiDisk"
+function loadUserConfig() {
+  try {
+    return JSON.parse(readFileSync(path.join(__dirname, "config.json"), "utf8"))
+  } catch {
+    return {}
+  }
+}
+
+const userConfig = loadUserConfig()
+const UPLOAD_DIR = path.resolve(
+  process.env.XIAOBAI_UPLOAD_DIR || userConfig.uploadDir || path.join(os.homedir(), "Documents", "xiaobaiDisk")
+)
+const PORT = Number(process.env.XIAOBAI_PORT || userConfig.port || 3000)
+const HOST = process.env.XIAOBAI_HOST || userConfig.host || "0.0.0.0"
 
 mkdirSync(UPLOAD_DIR, { recursive: true })
+
+/** Resolve name under UPLOAD_DIR; returns null if it escapes the root. */
+function resolveUploadPath(name) {
+  if (!name || name.includes("\0")) return null
+  const root = path.resolve(UPLOAD_DIR)
+  const target = path.resolve(root, name)
+  const rel = path.relative(root, target)
+  // Only block real escapes. Do not use startsWith("..") — that rejects "..foo".
+  if (rel === "" || rel === ".." || rel.startsWith(".." + path.sep) || path.isAbsolute(rel)) {
+    return null
+  }
+  return target
+}
+
+/**
+ * Parse a Range header. Returns { start, end } | "full" | "invalid".
+ * Multi-range / unknown unit → ignore and serve full body (RFC 7233).
+ */
+function parseRangeHeader(range, size) {
+  if (!range) return "full"
+  const raw = range.trim()
+  if (raw.includes(",")) return "full"
+
+  const m = /^bytes=(\d*)-(\d*)$/i.exec(raw)
+  if (!m || (m[1] === "" && m[2] === "")) return "full"
+
+  let start, end
+  if (m[1] === "") {
+    // suffix: last N bytes; if N > size, serve entire file (RFC 7233)
+    const suffix = Number(m[2])
+    if (!Number.isFinite(suffix) || suffix <= 0) return "invalid"
+    start = Math.max(size - suffix, 0)
+    end = size - 1
+  } else {
+    start = Number(m[1])
+    end = m[2] === "" ? size - 1 : Number(m[2])
+    if (!Number.isFinite(start) || !Number.isFinite(end)) return "invalid"
+    if (end >= size) end = size - 1
+  }
+
+  if (size === 0 || start >= size || start > end || start < 0) return "invalid"
+  return { start, end }
+}
 
 function getLocalIPs() {
   const interfaces = os.networkInterfaces()
@@ -91,27 +147,57 @@ router.post(
   }
 )
 
-// Serve uploaded files
+// Serve uploaded files (supports HTTP Range for resume)
 router.get("/files/:name", async (ctx) => {
-  const name = decodeURIComponent(ctx.params.name)
-  const filePath = path.join(UPLOAD_DIR, name)
+  // @koa/router already URI-decodes params. Do not decode again — names with "%" break.
+  const name = ctx.params.name
+  const filePath = resolveUploadPath(name)
 
-  if (!filePath.startsWith(UPLOAD_DIR)) {
+  if (!filePath) {
     ctx.status = 403
+    ctx.body = { error: "非法路径" }
     return
   }
 
+  let stat
   try {
-    statSync(filePath)
+    stat = await fs.stat(filePath)
   } catch {
     ctx.status = 404
     ctx.body = { error: "文件不存在" }
     return
   }
 
+  if (!stat.isFile()) {
+    ctx.status = 404
+    ctx.body = { error: "文件不存在" }
+    return
+  }
+
+  const size = stat.size
+  ctx.set("Accept-Ranges", "bytes")
   ctx.type = path.extname(name)
+
+  const range = parseRangeHeader(ctx.get("range"), size)
+
+  if (range === "invalid") {
+    ctx.status = 416
+    ctx.set("Content-Range", `bytes */${size}`)
+    return
+  }
+
+  if (range === "full") {
+    ctx.attachment(name)
+    ctx.length = size
+    ctx.body = createReadStream(filePath)
+    return
+  }
+
+  ctx.status = 206
+  ctx.set("Content-Range", `bytes ${range.start}-${range.end}/${size}`)
   ctx.attachment(name)
-  ctx.body = createReadStream(filePath)
+  ctx.length = range.end - range.start + 1
+  ctx.body = createReadStream(filePath, { start: range.start, end: range.end })
 })
 
 // List files
@@ -143,13 +229,11 @@ router.get("/files", async (ctx) => {
 
 app.use(router.routes()).use(router.allowedMethods())
 
-const PORT = 3000
-const HOST = "0.0.0.0"
-
 app.listen(PORT, HOST, () => {
   const localIPs = getLocalIPs()
 
   console.log("🎉 局域网网盘已启动：")
+  console.log(`  存储目录: ${UPLOAD_DIR}`)
 
   if (localIPs.length) {
     localIPs.forEach((ip) => {

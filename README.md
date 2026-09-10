@@ -47,7 +47,28 @@ npm run setup-startup
 | 查看文件 | 页面自动列出所有已上传文件，含大小和时间 |
 
 - 上传后局域网其他设备刷新页面即可看到新文件
-- 文件存储位置：`C:\Users\18421\Documents\xiaobaiDisk`
+- 文件存储位置默认：`%USERPROFILE%\Documents\xiaobaiDisk`（可用下面方式改）
+
+## 配置（可选）
+
+优先级：环境变量 > 项目根目录 `config.json` > 默认值。
+
+| 项 | 环境变量 | config.json 字段 | 默认值 |
+|----|----------|------------------|--------|
+| 存储目录 | `XIAOBAI_UPLOAD_DIR` | `uploadDir` | `%USERPROFILE%\Documents\xiaobaiDisk` |
+| 端口 | `XIAOBAI_PORT` | `port` | `3000` |
+| 监听地址 | `XIAOBAI_HOST` | `host` | `0.0.0.0` |
+
+`config.json` 示例：
+
+```json
+{
+  "uploadDir": "D:\\XiaoBaiDisk",
+  "port": 3000
+}
+```
+
+修改后需重启服务。
 
 ## 技术说明
 
@@ -55,3 +76,4 @@ npm run setup-startup
 - 文件上传通过 XHR 异步提交，有进度条
 - 上传新文件时会触发 Windows 桌面通知
 - 支持所有文件类型，无大小限制
+- 下载支持 HTTP Range，大文件可断点续传
