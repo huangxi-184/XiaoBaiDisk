@@ -3,9 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "start": "node app.js",
-    "start-hidden": "wscript start.vbs",
-    "setup-startup": "node setup-startup.js"
+    "start": "node app.js"
   },
   "keywords": [],
   "author": "",
@@ -15,7 +13,6 @@
     "@koa/router": "^15.1.0",
     "koa": "^3.1.1",
     "koa-body": "^7.0.1",
-    "koa-static": "^5.0.0",
-    "node-notifier": "^10.0.1"
+    "koa-static": "^5.0.0"
   }
 }

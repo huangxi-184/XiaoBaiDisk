@@ -1,0 +1,15 @@
+services:
+  xiaobaidisk:
+    build: .
+    image: xiaobaidisk:latest
+    container_name: xiaobaidisk
+    ports:
+      - "3000:3000"
+    volumes:
+      # 与 Windows 原生运行时同一目录，资源管理器可直接管理文件
+      - "C:/Users/18421/Documents/xiaobaiDisk:/data"
+    environment:
+      XIAOBAI_UPLOAD_DIR: /data
+      XIAOBAI_PORT: "3000"
+      XIAOBAI_HOST: 0.0.0.0
+    restart: unless-stopped

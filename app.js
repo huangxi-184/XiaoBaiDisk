@@ -6,7 +6,6 @@ const fs = require("fs").promises
 const { createReadStream, mkdirSync, readdirSync, renameSync, readFileSync } = require("fs")
 const path = require("path")
 const os = require("os")
-const notifier = require("node-notifier")
 
 const app = new Koa()
 const router = new Router()
@@ -136,14 +135,6 @@ router.post(
     renameSync(file.filepath, targetPath)
 
     ctx.body = { success: true, name: newFilename }
-
-    // Windows desktop notification
-    notifier.notify({
-      title: "小白网盘",
-      message: `新文件已上传: ${newFilename}`,
-      sound: true,
-      wait: false,
-    })
   }
 )
 
@@ -229,17 +220,21 @@ router.get("/files", async (ctx) => {
 
 app.use(router.routes()).use(router.allowedMethods())
 
-app.listen(PORT, HOST, () => {
-  const localIPs = getLocalIPs()
+if (require.main === module) {
+  app.listen(PORT, HOST, () => {
+    const localIPs = getLocalIPs()
 
-  console.log("🎉 局域网网盘已启动：")
-  console.log(`  存储目录: ${UPLOAD_DIR}`)
+    console.log("🎉 局域网网盘已启动：")
+    console.log(`  存储目录: ${UPLOAD_DIR}`)
 
-  if (localIPs.length) {
-    localIPs.forEach((ip) => {
-      console.log(`  http://${ip}:${PORT}`)
-    })
-  } else {
-    console.log(`  http://localhost:${PORT}`)
-  }
-})
+    if (localIPs.length) {
+      localIPs.forEach((ip) => {
+        console.log(`  http://${ip}:${PORT}`)
+      })
+    } else {
+      console.log(`  http://localhost:${PORT}`)
+    }
+  })
+}
+
+module.exports = { app }
